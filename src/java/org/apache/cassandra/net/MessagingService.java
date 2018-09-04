@@ -960,6 +960,10 @@ public final class MessagingService implements MessagingServiceMBean
             if (!ms.allowOutgoingMessage(message, id, to))
                 return;
 
+        // DMCK: Test Logging.
+        logger.info("DMCK: detects message={} from {} to {}", message.verb,
+            FBUtilities.getBroadcastAddress(), to.toString());
+
         // get pooled connection (really, connection queue)
         OutboundTcpConnection connection = getConnection(to, message);
 

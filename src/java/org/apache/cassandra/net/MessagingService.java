@@ -213,6 +213,7 @@ public final class MessagingService implements MessagingServiceMBean
                 return DatabaseDescriptor.getWriteRpcTimeout();
             }
         },
+        PAXOS_PREPARE_RESPONSE, // DMCK: additional message.
         PAXOS_PROPOSE
         {
             public long getTimeout()
@@ -220,6 +221,7 @@ public final class MessagingService implements MessagingServiceMBean
                 return DatabaseDescriptor.getWriteRpcTimeout();
             }
         },
+        PAXOS_PROPOSE_RESPONSE, // DMCK: additional message.
         PAXOS_COMMIT
         {
             public long getTimeout()
@@ -227,6 +229,7 @@ public final class MessagingService implements MessagingServiceMBean
                 return DatabaseDescriptor.getWriteRpcTimeout();
             }
         },
+        PAXOS_COMMIT_RESPONSE, // DMCK: additional message.
         @Deprecated PAGED_RANGE
         {
             public long getTimeout()
@@ -287,6 +290,11 @@ public final class MessagingService implements MessagingServiceMBean
         put(Verb.REQUEST_RESPONSE, Stage.REQUEST_RESPONSE);
         put(Verb.INTERNAL_RESPONSE, Stage.INTERNAL_RESPONSE);
 
+        // DMCK: additional messages.
+        put(Verb.PAXOS_PREPARE_RESPONSE, Stage.REQUEST_RESPONSE);
+        put(Verb.PAXOS_PROPOSE_RESPONSE, Stage.REQUEST_RESPONSE);
+        put(Verb.PAXOS_COMMIT_RESPONSE, Stage.REQUEST_RESPONSE);
+
         put(Verb.STREAM_REPLY, Stage.MISC); // actually handled by FileStreamTask and streamExecutors
         put(Verb.STREAM_REQUEST, Stage.MISC);
         put(Verb.REPLICATION_FINISHED, Stage.MISC);
@@ -329,6 +337,11 @@ public final class MessagingService implements MessagingServiceMBean
     {{
         put(Verb.REQUEST_RESPONSE, CallbackDeterminedSerializer.instance);
         put(Verb.INTERNAL_RESPONSE, CallbackDeterminedSerializer.instance);
+
+        // DMCK: additional messages.
+        put(Verb.PAXOS_PREPARE_RESPONSE, CallbackDeterminedSerializer.instance);
+        put(Verb.PAXOS_PROPOSE_RESPONSE, CallbackDeterminedSerializer.instance);
+        put(Verb.PAXOS_COMMIT_RESPONSE, CallbackDeterminedSerializer.instance);
 
         put(Verb.MUTATION, Mutation.serializer);
         put(Verb.READ_REPAIR, Mutation.serializer);
@@ -434,6 +447,9 @@ public final class MessagingService implements MessagingServiceMBean
                                                                    Verb.RANGE_SLICE,
                                                                    Verb.PAGED_RANGE,
                                                                    Verb.REQUEST_RESPONSE,
+                                                                   Verb.PAXOS_PREPARE_RESPONSE, // DMCK: additional messages.
+                                                                   Verb.PAXOS_PROPOSE_RESPONSE, // DMCK: additional messages.
+                                                                   Verb.PAXOS_COMMIT_RESPONSE, // DMCK: additional messages.
                                                                    Verb.BATCH_STORE,
                                                                    Verb.BATCH_REMOVE);
 
@@ -947,6 +963,8 @@ public final class MessagingService implements MessagingServiceMBean
      * @param message messages to be sent.
      * @param to      endpoint to which the message needs to be sent
      */
+    // DMCK: Replace this function with DMCK interception layer.
+    /*
     public void sendOneWay(MessageOut message, int id, InetAddress to)
     {
         if (logger.isTraceEnabled())
@@ -960,9 +978,39 @@ public final class MessagingService implements MessagingServiceMBean
             if (!ms.allowOutgoingMessage(message, id, to))
                 return;
 
-        // DMCK: Test Logging.
-        logger.info("DMCK: detects message={} from {} to {}", message.verb,
-            FBUtilities.getBroadcastAddress(), to.toString());
+        // get pooled connection (really, connection queue)
+        OutboundTcpConnection connection = getConnection(to, message);
+
+        // write it
+        connection.enqueue(message, id);
+    }
+    */
+
+    // DMCK: the sendOneWay() function replacement. See above.
+    public void sendOneWay(MessageOut message, int id, InetAddress to) {
+        if (message.verb == Verb.PAXOS_PREPARE || message.verb == Verb.PAXOS_PREPARE_RESPONSE ||
+            message.verb == Verb.PAXOS_PROPOSE || message.verb == Verb.PAXOS_PROPOSE_RESPONSE ||
+            message.verb == Verb.PAXOS_COMMIT || message.verb == Verb.PAXOS_COMMIT_RESPONSE) {
+            logger.info("DMCK: Detects Paxos-related message={} is being sent from {} to {}",
+                message.verb, FBUtilities.getBroadcastAddress(), to);
+        }
+
+        // Send the real message.
+        sendMessage(message, id, to);
+    }
+
+    // DMCK: the real message sending process.
+    public void sendMessage(MessageOut message, int id, InetAddress to) {
+        if (logger.isTraceEnabled())
+            logger.trace("{} sending {} to {}@{}", FBUtilities.getBroadcastAddress(), message.verb, id, to);
+
+        if (to.equals(FBUtilities.getBroadcastAddress()))
+            logger.trace("Message-to-self {} going over MessagingService", message);
+
+        // message sinks are a testing hook
+        for (IMessageSink ms : messageSinks)
+            if (!ms.allowOutgoingMessage(message, id, to))
+                return;
 
         // get pooled connection (really, connection queue)
         OutboundTcpConnection connection = getConnection(to, message);
@@ -1026,6 +1074,14 @@ public final class MessagingService implements MessagingServiceMBean
         TraceState state = Tracing.instance.initializeFromMessage(message);
         if (state != null)
             state.trace("{} message received from {}", message.verb, message.from);
+
+        // DMCK: additional messages.
+        if (message.verb == Verb.PAXOS_PREPARE || message.verb == Verb.PAXOS_PREPARE_RESPONSE ||
+            message.verb == Verb.PAXOS_PROPOSE || message.verb == Verb.PAXOS_PREPARE_RESPONSE ||
+            message.verb == Verb.PAXOS_COMMIT || message.verb == Verb.PAXOS_COMMIT_RESPONSE) {
+          logger.info("DMCK: Detects that node {} receives message={} from {}",
+              FBUtilities.getBroadcastAddress(), message.verb, message.from);
+        }
 
         // message sinks are a testing hook
         for (IMessageSink ms : messageSinks)

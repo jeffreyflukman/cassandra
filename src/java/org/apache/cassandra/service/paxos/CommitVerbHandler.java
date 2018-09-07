@@ -33,6 +33,8 @@ public class CommitVerbHandler implements IVerbHandler<Commit>
         PaxosState.commit(message.payload);
 
         Tracing.trace("Enqueuing acknowledge to {}", message.from);
-        MessagingService.instance().sendReply(WriteResponse.createMessage(), id, message.from);
+        // DMCK: Replace REQUEST_RESPONSE message with PAXOS_COMMIT_RESPONSE message.
+        //MessagingService.instance().sendReply(WriteResponse.createMessage(), id, message.from);
+        MessagingService.instance().sendReply(WriteResponse.createCommitResponseMessage(), id, message.from);
     }
 }

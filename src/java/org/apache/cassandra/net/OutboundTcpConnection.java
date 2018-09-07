@@ -329,7 +329,11 @@ public class OutboundTcpConnection extends FastThreadLocalThread
                 else
                 {
                     state.trace(message);
-                    if (qm.message.verb == MessagingService.Verb.REQUEST_RESPONSE)
+                    // DMCK: Add more message types coverage.
+                    if (qm.message.verb == MessagingService.Verb.REQUEST_RESPONSE ||
+                        qm.message.verb == MessagingService.Verb.PAXOS_PREPARE_RESPONSE ||
+                        qm.message.verb == MessagingService.Verb.PAXOS_PROPOSE_RESPONSE ||
+                        qm.message.verb == MessagingService.Verb.PAXOS_COMMIT_RESPONSE)
                         Tracing.instance.doneWithNonLocalSession(state);
                 }
             }

@@ -43,6 +43,11 @@ public final class WriteResponse
         return new MessageOut<>(MessagingService.Verb.REQUEST_RESPONSE, instance, serializer);
     }
 
+    // DMCK: Response with PAXOS_COMMIT_RESPONSE instead of REQUEST_RESPONSE.
+    public static MessageOut<WriteResponse> createCommitResponseMessage() {
+        return new MessageOut<>(MessagingService.Verb.PAXOS_COMMIT_RESPONSE, instance, serializer);
+    }
+
     public static class Serializer implements IVersionedSerializer<WriteResponse>
     {
         public void serialize(WriteResponse wm, DataOutputPlus out, int version) throws IOException

@@ -32,7 +32,9 @@ public class ProposeVerbHandler implements IVerbHandler<Commit>
     public void doVerb(MessageIn<Commit> message, int id)
     {
         Boolean response = PaxosState.propose(message.payload);
-        MessageOut<Boolean> reply = new MessageOut<Boolean>(MessagingService.Verb.REQUEST_RESPONSE, response, BooleanSerializer.serializer);
+        // DMCK: Replace REQUEST_RESPONSE message with PAXOS_PROPOSE_RESPONSE.
+        //MessageOut<Boolean> reply = new MessageOut<Boolean>(MessagingService.Verb.REQUEST_RESPONSE, response, BooleanSerializer.serializer);
+        MessageOut<Boolean> reply = new MessageOut<Boolean>(MessagingService.Verb.PAXOS_PROPOSE_RESPONSE, response, BooleanSerializer.serializer);
         MessagingService.instance().sendReply(reply, id, message.from);
     }
 }

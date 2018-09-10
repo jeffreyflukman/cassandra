@@ -39,7 +39,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-
+import edu.uchicago.cs.ucare.dmck.InterceptionLayer;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 
 import org.slf4j.Logger;
@@ -993,10 +993,14 @@ public final class MessagingService implements MessagingServiceMBean
             message.verb == Verb.PAXOS_COMMIT || message.verb == Verb.PAXOS_COMMIT_RESPONSE) {
             logger.info("DMCK: Detects Paxos-related message={} is being sent from {} to {}",
                 message.verb, FBUtilities.getBroadcastAddress(), to);
-        }
 
-        // Send the real message.
-        sendMessage(message, id, to);
+            // Spawn a thread to that will handle the interception.
+            Thread interceptorThread = new Thread(new InterceptorThread(message, id, to));
+            interceptorThread.start();
+        } else {
+            // Send the real message.
+            sendMessage(message, id, to);
+        }
     }
 
     // DMCK: the real message sending process.
@@ -1598,5 +1602,47 @@ public final class MessagingService implements MessagingServiceMBean
     public List<SocketThread> getSocketThreads()
     {
         return socketThreads;
+    }
+
+    // DMCK: Interceptor Thread that will be spawn if an interesting message is detected.
+    private static class InterceptorThread implements Runnable {
+
+        private MessageOut message;
+        private int id;
+        private InetAddress to;
+
+        public InterceptorThread(MessageOut message, int id, InetAddress to) {
+            this.message = message;
+            this.id = id;
+            this.to = to;
+        }
+
+        @Override
+        public void run() {
+            String sourceAddress = FBUtilities.getBroadcastAddress().getHostAddress();
+            int sendID = Integer.parseInt(sourceAddress.substring(sourceAddress.length() - 1)) - 1;
+            String destinationAddress = to.getHostAddress();
+            int recvID = Integer.parseInt(destinationAddress.substring(destinationAddress.length() - 1)) - 1;
+            String verb = message.verb.name();
+            HashMap<String, Object> payload = new HashMap<String, Object>();
+            if (message.payload instanceof PrepareResponse) {
+                PrepareResponse prepare = (PrepareResponse) message.payload;
+                payload.put("response", prepare.promised);
+                payload.put("inProgressCommitBallot", prepare.inProgressCommit.ballot.toString());
+                payload.put("mostRecentCommitBallot", prepare.mostRecentCommit.ballot.toString());
+            } else if (message.payload instanceof Commit) {
+                Commit commit = (Commit) message.payload;
+                payload.put("ballot", commit.ballot);
+                payload.put("partitionKey", commit.update.partitionKey().toString());
+            } else if (message.payload instanceof Boolean) {
+                Boolean response = (Boolean) message.payload;
+                payload.put("response", response);
+            }
+
+            InterceptionLayer.interceptMessageEvent(sendID, recvID, verb, payload.toString());
+
+            // Enable the real message.
+            MessagingService.instance().sendMessage(message, recvID, to);
+        }
     }
 }

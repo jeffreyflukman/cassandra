@@ -411,7 +411,8 @@ public class StorageProxy implements StorageProxyMBean
             // Note that ballotMicros is not guaranteed to be unique if two proposal are being handled concurrently by the same coordinator. But we still
             // need ballots to be unique for each proposal so we have to use getRandomTimeUUIDFromMicros.
             //UUID ballot = UUIDGen.getRandomTimeUUIDFromMicros(ballotMicros);
-            UUID ballot = UUIDGen.getBallotNumberFromFile();
+            long ballotMicros = UUIDGen.getBallotNumberFromFile();
+            UUID ballot = UUIDGen.getTimeUUID(ballotMicros);
             logger.info("DMCK: ballot number=" + ballot);
 
             // prepare

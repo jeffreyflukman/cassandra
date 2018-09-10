@@ -300,7 +300,8 @@ public class UUIDGen
     }
 
     // DMCK: Read initial ballot number from file.
-    public static UUID getBallotNumberFromFile() {
+    public static long getBallotNumberFromFile() {
+        logger.info("DMCK: debug user.dir=" + System.getProperty("user.dir"));
         long ballotNumber = 0;
         FileLock lock = null;
         try {
@@ -327,7 +328,7 @@ public class UUIDGen
             e.printStackTrace();
           }
         }
-        return getTimeUUID(ballotNumber);
+        return ballotNumber;
     }
 
     private static long makeClockSeqAndNode()

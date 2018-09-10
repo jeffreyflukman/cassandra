@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.utils;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileLock;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -26,6 +30,8 @@ import java.util.Collection;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -36,6 +42,9 @@ import com.google.common.primitives.Ints;
  */
 public class UUIDGen
 {
+    // DMCK: Add logger.
+    private static final Logger logger = LoggerFactory.getLogger(UUIDGen.class);
+
     // A grand day! millis at 00:00:00.000 15 Oct 1582.
     private static final long START_EPOCH = -12219292800000L;
     private static final long clockSeqAndNode = makeClockSeqAndNode();
@@ -290,9 +299,42 @@ public class UUIDGen
         return (uuid.timestamp() / 10000) + START_EPOCH;
     }
 
+    // DMCK: Read initial ballot number from file.
+    public static UUID getBallotNumberFromFile() {
+        long ballotNumber = 0;
+        FileLock lock = null;
+        try {
+          @SuppressWarnings("resource")
+          RandomAccessFile raf = new RandomAccessFile(System.getProperty("user.dir") + "/ballot", "rw");
+          while (lock == null) {
+            lock = raf.getChannel().tryLock();
+            Thread.sleep(50);
+          }
+          ballotNumber = Long.valueOf(raf.readLine());
+          FileOutputStream fos = new FileOutputStream(System.getProperty("user.dir") + "/ballot", false);
+          long nextBallotNumber = ballotNumber + 1;
+          fos.write(String.valueOf(nextBallotNumber).getBytes());
+          fos.flush();
+          fos.close();
+        } catch (Exception e) {
+          logger.error("DMCK: Failed to read ballot number from file.");
+          e.printStackTrace();
+        } finally {
+          try {
+            lock.release();
+          } catch (IOException e) {
+            logger.error("DMCK: Failed to release lock on ballot number file.");
+            e.printStackTrace();
+          }
+        }
+        return getTimeUUID(ballotNumber);
+    }
+
     private static long makeClockSeqAndNode()
     {
-        long clock = new SecureRandom().nextLong();
+        // DMCK: feed random seed instead of generating random seed.
+        //long clock = new SecureRandom().nextLong();
+        long clock = new Random(1485885181909L).nextLong();
 
         long lsb = 0;
         lsb |= 0x8000000000000000L;                 // variant (2 bits)

@@ -1628,11 +1628,11 @@ public final class MessagingService implements MessagingServiceMBean
             if (message.payload instanceof PrepareResponse) {
                 PrepareResponse prepare = (PrepareResponse) message.payload;
                 payload.put("response", prepare.promised);
-                payload.put("inProgressCommitBallot", prepare.inProgressCommit.ballot.toString());
-                payload.put("mostRecentCommitBallot", prepare.mostRecentCommit.ballot.toString());
+                payload.put("inProgressCommitBallot", prepare.inProgressCommit.ballot.toString().substring(0, 23));
+                payload.put("mostRecentCommitBallot", prepare.mostRecentCommit.ballot.toString().substring(0, 23));
             } else if (message.payload instanceof Commit) {
                 Commit commit = (Commit) message.payload;
-                payload.put("ballot", commit.ballot);
+                payload.put("ballot", commit.ballot.toString().substring(0, 23));
             } else if (message.payload instanceof Boolean) {
                 Boolean response = (Boolean) message.payload;
                 payload.put("response", response);

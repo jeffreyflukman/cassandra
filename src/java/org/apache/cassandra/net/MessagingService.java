@@ -1633,7 +1633,6 @@ public final class MessagingService implements MessagingServiceMBean
             } else if (message.payload instanceof Commit) {
                 Commit commit = (Commit) message.payload;
                 payload.put("ballot", commit.ballot);
-                payload.put("partitionKey", commit.update.partitionKey().toString());
             } else if (message.payload instanceof Boolean) {
                 Boolean response = (Boolean) message.payload;
                 payload.put("response", response);

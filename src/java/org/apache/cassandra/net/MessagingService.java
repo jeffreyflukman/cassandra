@@ -1641,7 +1641,7 @@ public final class MessagingService implements MessagingServiceMBean
             InterceptionLayer.interceptMessageEvent(sendID, recvID, verb, payload.toString());
 
             // Enable the real message.
-            MessagingService.instance().sendMessage(message, recvID, to);
+            MessagingService.instance().sendMessage(message, id, to);
         }
     }
 }

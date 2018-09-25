@@ -30,6 +30,18 @@ public class InterceptionLayer {
     waitForAck(filename);
   }
 
+  public static void updateNodeState(long nodeId, String type, String ballot) {
+    String filename = "cassUpdate-" + nodeId + "-" + getTimestamp();
+
+    String content = "";
+    content += "sender=" + nodeId + "\n";
+    content += "type=" + type + "\n";
+    content += "ballot=" + ballot + "\n";
+
+    writePacketToFile(filename, content);
+    commitFile(filename);
+  }
+
   private static void commitFile(String filename) {
     try {
       Runtime.getRuntime()

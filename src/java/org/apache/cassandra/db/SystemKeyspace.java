@@ -41,7 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.Futures;
-
+import edu.uchicago.cs.ucare.dmck.InterceptionLayer;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.SchemaConstants;
@@ -1160,6 +1160,13 @@ public final class SystemKeyspace
                         promise.ballot,
                         promise.update.partitionKey().getKey(),
                         promise.update.metadata().cfId);
+
+        // DMCK: Notify node state to DMCK.
+        String nodeAddress = FBUtilities.getBroadcastAddress().getHostAddress();
+        long nodeId = Long.parseLong(nodeAddress.substring(nodeAddress.length() - 1)) - 1;
+        String type = "inProgress";
+        String ballot = promise.ballot.toString().substring(0, 23);
+        InterceptionLayer.updateNodeState(nodeId, type, ballot);
     }
 
     public static void savePaxosProposal(Commit proposal)
@@ -1172,6 +1179,13 @@ public final class SystemKeyspace
                         MessagingService.current_version,
                         proposal.update.partitionKey().getKey(),
                         proposal.update.metadata().cfId);
+
+        // DMCK: Notify node state to DMCK.
+        String nodeAddress = FBUtilities.getBroadcastAddress().getHostAddress();
+        long nodeId = Long.parseLong(nodeAddress.substring(nodeAddress.length() - 1)) - 1;
+        String type = "inProgress";
+        String ballot = proposal.ballot.toString().substring(0, 23);
+        InterceptionLayer.updateNodeState(nodeId, type, ballot);
     }
 
     public static int paxosTtlSec(CFMetaData metadata)
@@ -1193,6 +1207,18 @@ public final class SystemKeyspace
                         MessagingService.current_version,
                         commit.update.partitionKey().getKey(),
                         commit.update.metadata().cfId);
+
+        // DMCK: Notify node state to DMCK.
+        String nodeAddress = FBUtilities.getBroadcastAddress().getHostAddress();
+        long nodeId = Long.parseLong(nodeAddress.substring(nodeAddress.length() - 1)) - 1;
+        // DMCK: Update in progress state.
+        String type = "inProgress";
+        String ballot = "-1";
+        InterceptionLayer.updateNodeState(nodeId, type, ballot);
+        // DMCK: Update in progress state.
+        type = "mostRecent";
+        ballot = commit.ballot.toString().substring(0, 23);
+        InterceptionLayer.updateNodeState(nodeId, type, ballot);
     }
 
     /**
